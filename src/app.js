@@ -302,3 +302,54 @@ function initDiagramToggles() {
         btn.addEventListener('click', () => target.classList.toggle('hidden'));
     });
 }
+
+function renderRichContent(container) {
+    container = container || markdownPreview;
+
+    // Syntax highlighting
+    container.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+    });
+
+    // Mermaid diagrams
+    container.querySelectorAll('pre code.language-mermaid').forEach(code => {
+        const pre = code.parentElement;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mermaid';
+        wrapper.textContent = code.textContent;
+        pre.replaceWith(wrapper);
+    });
+    if (window.mermaid) {
+        mermaid.init(undefined, container.querySelectorAll('.mermaid'));
+    }
+
+    // MathJax equations
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        MathJax.typesetPromise([container]).catch(err => console.error(err));
+    }
+
+    if (container === markdownPreview) {
+        buildTOC();
+        initCallouts();
+        initCodeRunners();
+        initDiagramToggles();
+    }
+}
+
+async function loadHeroExample() {
+    try {
+        const res = await fetch('/samples/hero.md');
+        const markdown = await res.text();
+        const formData = new FormData();
+        formData.append('markdown', markdown);
+        const convRes = await fetch('/convert', { method: 'POST', body: formData });
+        const data = await convRes.json();
+        const hero = document.getElementById('hero-example');
+        hero.innerHTML = data.html;
+        renderRichContent(hero);
+    } catch (err) {
+        console.error('Failed to load hero example', err);
+    }
+}
+
+loadHeroExample();
