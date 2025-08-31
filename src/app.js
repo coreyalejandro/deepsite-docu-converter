@@ -109,7 +109,7 @@
             filename.textContent = file.name;
             filesize.textContent = formatFileSize(file.size);
             fileInfo.classList.remove('hidden');
-            convertBtn.disabled = false;
+            updateConvertButtonState();
         }
         
         function formatFileSize(bytes) {
@@ -123,13 +123,12 @@
         removeFile.addEventListener('click', () => {
             fileInfo.classList.add('hidden');
             fileInput.value = '';
-            convertBtn.disabled = true;
+            updateConvertButtonState();
         });
         
         function updateConvertButtonState() {
-            // In a real app, you might want to check for valid conversion combinations
-            // For now, we'll just enable it if a file is selected
-            convertBtn.disabled = fileInput.files.length === 0;
+            // Enable convert when a file is selected or markdown is present
+            convertBtn.disabled = fileInput.files.length === 0 && !editor.value.trim();
         }
         
         // Preview toggles
@@ -179,31 +178,52 @@
         });
         
         // Convert button handler
-        document.getElementById('convert-btn').addEventListener('click', () => {
-            // In a real app, this would handle the actual conversion
-            // For now, we'll just simulate it
-            const inputFormat = document.querySelector('.format-btn.active').id.split('-')[1];
-            const outputFormat = document.querySelectorAll('.format-btn.active')[1].id.split('-')[1];
-            
-            alert(`Converting from ${inputFormat.toUpperCase()} to ${outputFormat.toUpperCase()}... This would be handled by a backend service in a real application.`);
-            
-            // Simulate conversion result
-            if (outputFormat === 'pdf') {
-                document.getElementById('pdf-viewer').classList.remove('hidden');
-                document.querySelector('#pdf-preview p').classList.add('hidden');
-                // In a real app, you would set the PDF viewer source here
+        document.getElementById('convert-btn').addEventListener('click', async () => {
+            const formData = new FormData();
+
+            if (fileInput.files[0]) {
+                formData.append('file', fileInput.files[0]);
+            } else if (editor.value.trim()) {
+                formData.append('markdown', editor.value);
+            } else {
+                const msg = '<p class="text-red-500">No content to convert</p>';
+                markdownPreview.innerHTML = msg;
+                htmlPreview.innerHTML = msg;
+                pdfPreview.innerHTML = msg;
+                return;
+            }
+
+            try {
+                const res = await fetch('/convert', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Conversion failed');
+
+                markdownPreview.innerHTML = data.html;
+                htmlPreview.innerHTML = data.html;
+                pdfPreview.innerHTML = data.html;
+                renderRichContent();
+            } catch (err) {
+                const msg = `<p class="text-red-500">${err.message}</p>`;
+                markdownPreview.innerHTML = msg;
+                htmlPreview.innerHTML = msg;
+                pdfPreview.innerHTML = msg;
             }
         });
         
         // Editor content change handler
         const editor = document.getElementById('editor');
         const markdownPreview = document.getElementById('markdown-preview');
+        const htmlPreview = document.getElementById('html-preview');
+        const pdfPreview = document.getElementById('pdf-preview');
         editor.addEventListener('input', (e) => {
             const raw = e.target.value;
             const html = marked.parse(raw || '');
             markdownPreview.innerHTML = html || '<p class="text-gray-500">Preview will appear here as you type...</p>';
             renderRichContent();
+            updateConvertButtonState();
         });
+
+        updateConvertButtonState();
 
 function buildTOC() {
     const toc = document.getElementById('toc');
