@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuMagic - Advanced Document Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        .editor-container {
+            height: calc(100vh - 200px);
+        }
+        .preview-container {
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+        .dropzone {
+            border: 2px dashed #ccc;
+            transition: all 0.3s;
+        }
+        .dropzone.active {
+            border-color: #4f46e5;
+            background-color: #eef2ff;
+        }
+        #pdf-viewer {
+            width: 100%;
+            height: 100%;
+        }
+        .slide {
+            min-height: 300px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        @media (max-width: 768px) {
+            .editor-container, .preview-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-roboto">
+    <!-- Navigation -->
+    <nav class="bg-gray-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-magic text-2xl mr-2"></i>
+                        <span class="text-xl font-bold">DocuMagic</span>
+                    </div>
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-baseline space-x-4">
+                            <a href="#" class="px-4 py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 transition-colors">Converter</a>
+                            <a href="#" class="px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 transition-colors">Editor</a>
+                            <a href="#" class="px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 transition-colors">Presentations</a>
+                            <a href="#" class="px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 transition-colors">Templates</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-4 flex items-center md:ml-6">
+                        <button class="p-1 rounded-full text-indigo-200 hover:text-white focus:outline-none">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <button class="ml-3 p-1 rounded-full text-indigo-200 hover:text-white focus:outline-none">
+                            <i class="fas fa-bell"></i>
+                        </button>
+                        <div class="ml-3 relative">
+                            <div class="h-8 w-8 rounded-full bg-indigo-400 flex items-center justify-center">
+                                <span class="text-white font-medium">JD</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="-mr-2 flex md:hidden">
+                    <button type="button" class="inline-flex items-center justify-center p-2 rounded-md text-indigo-200 hover:text-white hover:bg-indigo-500 focus:outline-none">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <!-- Converter Section -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Document Converter</h2>
+                <div class="flex space-x-2">
+                    <button class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md text-sm hover:bg-indigo-200">
+                        <i class="fas fa-history mr-1"></i> History
+                    </button>
+                    <button class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md text-sm hover:bg-indigo-200">
+                        <i class="fas fa-star mr-1"></i> Favorites
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <!-- Input Format -->
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Input Format</label>
+                    <div class="flex space-x-2">
+                        <button id="input-md" class="format-btn active px-4 py-2 bg-blue-600 text-white rounded-md text-sm shadow hover:bg-blue-700 transition-colors">Markdown</button>
+                        <button id="input-pdf" class="format-btn px-4 py-2 bg-gray-600 text-gray-300 rounded-md text-sm shadow hover:bg-gray-500 transition-colors">PDF</button>
+                        <button id="input-txt" class="format-btn px-4 py-2 bg-gray-600 text-gray-300 rounded-md text-sm shadow hover:bg-gray-500 transition-colors">Text</button>
+                    </div>
+                </div>
+
+                <!-- Conversion Direction -->
+                <div class="bg-gray-50 p-4 rounded-lg flex flex-col items-center justify-center">
+                    <button id="swap-btn" class="p-2 bg-indigo-100 text-indigo-600 rounded-full hover:bg-indigo-200">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                    <span class="text-xs text-gray-500 mt-1">Click to swap</span>
+                </div>
+
+                <!-- Output Format -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Output Format</label>
+                    <div class="flex space-x-2">
+                        <button id="output-md" class="format-btn px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-sm">Markdown</button>
+                        <button id="output-pdf" class="format-btn active px-3 py-1 bg-indigo-600 text-white rounded-md text-sm">PDF</button>
+                        <button id="output-txt" class="format-btn px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-sm">Text</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Upload and Conversion -->
+            <div id="dropzone" class="dropzone p-8 rounded-lg mb-4 text-center cursor-pointer">
+                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                <p class="text-gray-600">Drag & drop your files here or click to browse</p>
+                <input type="file" id="file-input" class="hidden" accept=".md,.pdf,.txt">
+                <p class="text-xs text-gray-500 mt-2">Supports: .md, .pdf, .txt files</p>
+            </div>
+
+            <div id="file-info" class="hidden bg-blue-50 p-3 rounded-md mb-4 flex justify-between items-center">
+                <div class="flex items-center">
+                    <i class="fas fa-file-alt text-blue-500 mr-2"></i>
+                    <span id="filename" class="text-sm font-medium text-blue-800"></span>
+                    <span id="filesize" class="text-xs text-blue-600 ml-2"></span>
+                </div>
+                <button id="remove-file" class="text-red-500 hover:text-red-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="flex justify-between items-center">
+                <div class="flex space-x-2">
+                    <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
+                        <i class="fas fa-cog mr-1"></i> Settings
+                    </button>
+                    <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
+                        <i class="fas fa-file-export mr-1"></i> Templates
+                    </button>
+                </div>
+                <button id="convert-btn" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow" disabled>
+                    <i class="fas fa-sync-alt mr-1"></i> Convert
+                </button>
+            </div>
+        </div>
+
+        <!-- Editor and Preview Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Editor Panel -->
+            <div class="bg-gray-800 rounded-lg shadow-lg p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-medium text-gray-800">Editor</h3>
+                    <div class="flex space-x-1">
+                        <button class="p-1 text-gray-500 hover:text-indigo-600 tooltip">
+                            <i class="fas fa-bold"></i>
+                            <span class="tooltiptext">Bold (Ctrl+B)</span>
+                        </button>
+                        <button class="p-1 text-gray-500 hover:text-indigo-600 tooltip">
+                            <i class="fas fa-italic"></i>
+                            <span class="tooltiptext">Italic (Ctrl+I)</span>
+                        </button>
+                        <button class="p-1 text-gray-500 hover:text-indigo-600 tooltip">
+                            <i class="fas fa-heading"></i>
+                            <span class="tooltiptext">Heading</span>
+                        </button>
+                        <button class="p-1 text-gray-500 hover:text-indigo-600 tooltip">
+                            <i class="fas fa-list-ul"></i>
+                            <span class="tooltiptext">List</span>
+                        </button>
+                        <button class="p-1 text-gray-500 hover:text-indigo-600 tooltip">
+                            <i class="fas fa-link"></i>
+                            <span class="tooltiptext">Link</span>
+                        </button>
+                        <button class="p-1 text-gray-500 hover:text-indigo-600 tooltip">
+                            <i class="fas fa-image"></i>
+                            <span class="tooltiptext">Image</span>
+                        </button>
+                        <button class="p-1 text-gray-500 hover:text-indigo-600 tooltip">
+                            <i class="fas fa-table"></i>
+                            <span class="tooltiptext">Table</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="editor-container border border-gray-700 rounded-md p-4 bg-gray-700">
+                    <textarea id="editor" class="w-full h-full focus:outline-none resize-none" placeholder="Start typing or paste your content here..."></textarea>
+                </div>
+            </div>
+
+            <!-- Preview Panel -->
+            <div class="bg-gray-800 rounded-lg shadow-lg p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-medium text-gray-800">Preview</h3>
+                    <div class="flex space-x-2">
+                        <button id="preview-md" class="px-2 py-1 bg-indigo-600 text-white rounded-md text-xs">Markdown</button>
+                        <button id="preview-html" class="px-2 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">HTML</button>
+                        <button id="preview-pdf" class="px-2 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">PDF</button>
+                    </div>
+                </div>
+                <div id="preview-container" class="preview-container border border-gray-700 rounded-md p-4 overflow-auto bg-gray-700">
+                    <div id="markdown-preview" class="prose max-w-none">
+                        <p class="text-gray-500">Preview will appear here...</p>
+                    </div>
+                    <div id="html-preview" class="hidden"></div>
+                    <div id="pdf-preview" class="hidden h-full">
+                        <iframe id="pdf-viewer" class="hidden"></iframe>
+                        <p class="text-gray-500 text-center mt-10">PDF preview will appear here after conversion</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Presentation Builder Section -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Presentation Builder</h2>
+                <button class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                    <i class="fas fa-plus mr-1"></i> New Presentation
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Theme</label>
+                    <select class="w-full border rounded-md p-2 text-sm">
+                        <option>Modern</option>
+                        <option>Classic</option>
+                        <option>Minimal</option>
+                        <option>Dark</option>
+                    </select>
+                </div>
+                <div class="bg-gray-100 p-4 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Transition</label>
+                    <select class="w-full border rounded-md p-2 text-sm">
+                        <option>Slide</option>
+                        <option>Fade</option>
+                        <option>Zoom</option>
+                        <option>None</option>
+                    </select>
+                </div>
+                <div class="bg-gray-100 p-4 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Aspect Ratio</label>
+                    <select class="w-full border rounded-md p-2 text-sm">
+                        <option>16:9</option>
+                        <option>4:3</option>
+                        <option>1:1</option>
+                    </select>
+                </div>
+                <div class="bg-gray-100 p-4 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Export Format</label>
+                    <select class="w-full border rounded-md p-2 text-sm">
+                        <option>HTML</option>
+                        <option>PDF</option>
+                        <option>PPTX</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex space-x-4 overflow-x-auto pb-4">
+                <div class="slide p-6 flex-shrink-0 w-64 bg-gray-700">
+                    <h3 class="text-lg font-medium mb-2">Slide 1</h3>
+                    <p class="text-sm text-gray-600">Click to edit content</p>
+                </div>
+                <div class="slide p-6 flex-shrink-0 w-64">
+                    <h3 class="text-lg font-medium mb-2">Slide 2</h3>
+                    <p class="text-sm text-gray-600">Click to edit content</p>
+                </div>
+                <div class="slide p-6 flex-shrink-0 w-64">
+                    <h3 class="text-lg font-medium mb-2">Slide 3</h3>
+                    <p class="text-sm text-gray-600">Click to edit content</p>
+                </div>
+                <div class="bg-gray-700 p-6 rounded-lg flex-shrink-0 w-64 flex items-center justify-center cursor-pointer hover:bg-gray-600 transition-colors">
+                    <i class="fas fa-plus text-gray-400 text-2xl"></i>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-4">
+                <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
+                    <i class="fas fa-eye mr-1"></i> Preview
+                </button>
+                <button class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                    <i class="fas fa-download mr-1"></i> Export
+                </button>
+            </div>
+        </div>
+
+        <!-- Image Editor Section -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Image Editor</h2>
+                <button class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                    <i class="fas fa-upload mr-1"></i> Upload Image
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                <div class="lg:col-span-3 bg-gray-700 rounded-lg p-4">
+                    <div class="flex justify-center items-center h-64 bg-gray-700 border border-gray-600 rounded-md">
+                        <p class="text-gray-500">Upload an image to start editing</p>
+                    </div>
+                </div>
+                <div class="bg-gray-700 rounded-lg p-4">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Brightness</label>
+                            <input type="range" class="w-full">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Contrast</label>
+                            <input type="range" class="w-full">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Saturation</label>
+                            <input type="range" class="w-full">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Filters</label>
+                            <select class="w-full border rounded-md p-2 text-sm">
+                                <option>None</option>
+                                <option>Sepia</option>
+                                <option>Grayscale</option>
+                                <option>Vintage</option>
+                            </select>
+                        </div>
+                        <button class="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                            <i class="fas fa-crop mr-1"></i> Crop
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-gray-300 py-8 mt-12 border-t border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <h3 class="text-lg font-medium mb-4">DocuMagic</h3>
+                    <p class="text-gray-400 text-sm">Advanced document conversion and editing tools for professionals and teams.</p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-medium mb-4">Features</h3>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li><a href="#" class="hover:text-white">Document Converter</a></li>
+                        <li><a href="#" class="hover:text-white">Markdown Editor</a></li>
+                        <li><a href="#" class="hover:text-white">PDF Tools</a></li>
+                        <li><a href="#" class="hover:text-white">Presentation Builder</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-medium mb-4">Resources</h3>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li><a href="#" class="hover:text-white">Documentation</a></li>
+                        <li><a href="#" class="hover:text-white">API</a></li>
+                        <li><a href="#" class="hover:text-white">Tutorials</a></li>
+                        <li><a href="#" class="hover:text-white">Blog</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-medium mb-4">Connect</h3>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-white"><i class="fab fa-github"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-white"><i class="fab fa-linkedin"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-white"><i class="fab fa-discord"></i></a>
+                    </div>
+                    <p class="text-sm text-gray-400 mt-4">Subscribe to our newsletter</p>
+                    <div class="flex mt-2">
+                        <input type="email" placeholder="Your email" class="px-3 py-2 text-sm text-gray-900 rounded-l-md focus:outline-none">
+                        <button class="px-3 py-2 bg-indigo-600 text-white text-sm rounded-r-md hover:bg-indigo-700">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-8 text-sm text-gray-400 text-center">
+                <p>© 2023 DocuMagic. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Format selection
+        const formatBtns = document.querySelectorAll('.format-btn');
+        formatBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all buttons in the same container
+                btn.parentElement.querySelectorAll('.format-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-indigo-600', 'text-white');
+                    b.classList.add('bg-gray-200', 'text-gray-700');
+                });
+                
+                // Add active class to clicked button
+                btn.classList.add('active', 'bg-indigo-600', 'text-white');
+                btn.classList.remove('bg-gray-200', 'text-gray-700');
+                
+                updateConvertButtonState();
+            });
+        });
+
+        // Swap conversion direction
+        document.getElementById('swap-btn').addEventListener('click', () => {
+            const inputMd = document.getElementById('input-md');
+            const inputPdf = document.getElementById('input-pdf');
+            const inputTxt = document.getElementById('input-txt');
+            
+            const outputMd = document.getElementById('output-md');
+            const outputPdf = document.getElementById('output-pdf');
+            const outputTxt = document.getElementById('output-txt');
+            
+            // Get current active states
+            const inputActive = inputMd.classList.contains('active') ? 'md' : 
+                               inputPdf.classList.contains('active') ? 'pdf' : 'txt';
+            const outputActive = outputMd.classList.contains('active') ? 'md' : 
+                                outputPdf.classList.contains('active') ? 'pdf' : 'txt';
+            
+            // Reset all
+            [inputMd, inputPdf, inputTxt, outputMd, outputPdf, outputTxt].forEach(btn => {
+                btn.classList.remove('active', 'bg-indigo-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+            
+            // Set new active states (swapped)
+            if (outputActive === 'md') inputMd.classList.add('active', 'bg-indigo-600', 'text-white');
+            if (outputActive === 'pdf') inputPdf.classList.add('active', 'bg-indigo-600', 'text-white');
+            if (outputActive === 'txt') inputTxt.classList.add('active', 'bg-indigo-600', 'text-white');
+            
+            if (inputActive === 'md') outputMd.classList.add('active', 'bg-indigo-600', 'text-white');
+            if (inputActive === 'pdf') outputPdf.classList.add('active', 'bg-indigo-600', 'text-white');
+            if (inputActive === 'txt') outputTxt.classList.add('active', 'bg-indigo-600', 'text-white');
+            
+            updateConvertButtonState();
+        });
+
+        // File upload handling
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const filename = document.getElementById('filename');
+        const filesize = document.getElementById('filesize');
+        const removeFile = document.getElementById('remove-file');
+        const convertBtn = document.getElementById('convert-btn');
+        
+        // Handle drag and drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            dropzone.classList.add('active');
+        }
+        
+        function unhighlight() {
+            dropzone.classList.remove('active');
+        }
+        
+        dropzone.addEventListener('drop', handleDrop, false);
+        dropzone.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', handleFiles);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files } });
+        }
+        
+        function handleFiles(e) {
+            const files = e.target.files;
+            if (files.length) {
+                const file = files[0];
+                displayFileInfo(file);
+            }
+        }
+        
+        function displayFileInfo(file) {
+            filename.textContent = file.name;
+            filesize.textContent = formatFileSize(file.size);
+            fileInfo.classList.remove('hidden');
+            convertBtn.disabled = false;
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        removeFile.addEventListener('click', () => {
+            fileInfo.classList.add('hidden');
+            fileInput.value = '';
+            convertBtn.disabled = true;
+        });
+        
+        function updateConvertButtonState() {
+            // In a real app, you might want to check for valid conversion combinations
+            // For now, we'll just enable it if a file is selected
+            convertBtn.disabled = fileInput.files.length === 0;
+        }
+        
+        // Preview toggles
+        document.getElementById('preview-md').addEventListener('click', () => {
+            document.getElementById('markdown-preview').classList.remove('hidden');
+            document.getElementById('html-preview').classList.add('hidden');
+            document.getElementById('pdf-preview').classList.add('hidden');
+            
+            document.getElementById('preview-md').classList.add('bg-indigo-600', 'text-white');
+            document.getElementById('preview-md').classList.remove('bg-gray-200', 'text-gray-700');
+            
+            document.getElementById('preview-html').classList.remove('bg-indigo-600', 'text-white');
+            document.getElementById('preview-html').classList.add('bg-gray-200', 'text-gray-700');
+            
+            document.getElementById('preview-pdf').classList.remove('bg-indigo-600', 'text-white');
+            document.getElementById('preview-pdf').classList.add('bg-gray-200', 'text-gray-700');
+        });
+        
+        document.getElementById('preview-html').addEventListener('click', () => {
+            document.getElementById('markdown-preview').classList.add('hidden');
+            document.getElementById('html-preview').classList.remove('hidden');
+            document.getElementById('pdf-preview').classList.add('hidden');
+            
+            document.getElementById('preview-md').classList.remove('bg-indigo-600', 'text-white');
+            document.getElementById('preview-md').classList.add('bg-gray-200', 'text-gray-700');
+            
+            document.getElementById('preview-html').classList.add('bg-indigo-600', 'text-white');
+            document.getElementById('preview-html').classList.remove('bg-gray-200', 'text-gray-700');
+            
+            document.getElementById('preview-pdf').classList.remove('bg-indigo-600', 'text-white');
+            document.getElementById('preview-pdf').classList.add('bg-gray-200', 'text-gray-700');
+        });
+        
+        document.getElementById('preview-pdf').addEventListener('click', () => {
+            document.getElementById('markdown-preview').classList.add('hidden');
+            document.getElementById('html-preview').classList.add('hidden');
+            document.getElementById('pdf-preview').classList.remove('hidden');
+            
+            document.getElementById('preview-md').classList.remove('bg-indigo-600', 'text-white');
+            document.getElementById('preview-md').classList.add('bg-gray-200', 'text-gray-700');
+            
+            document.getElementById('preview-html').classList.remove('bg-indigo-600', 'text-white');
+            document.getElementById('preview-html').classList.add('bg-gray-200', 'text-gray-700');
+            
+            document.getElementById('preview-pdf').classList.add('bg-indigo-600', 'text-white');
+            document.getElementById('preview-pdf').classList.remove('bg-gray-200', 'text-gray-700');
+        });
+        
+        // Convert button handler
+        document.getElementById('convert-btn').addEventListener('click', () => {
+            // In a real app, this would handle the actual conversion
+            // For now, we'll just simulate it
+            const inputFormat = document.querySelector('.format-btn.active').id.split('-')[1];
+            const outputFormat = document.querySelectorAll('.format-btn.active')[1].id.split('-')[1];
+            
+            alert(`Converting from ${inputFormat.toUpperCase()} to ${outputFormat.toUpperCase()}... This would be handled by a backend service in a real application.`);
+            
+            // Simulate conversion result
+            if (outputFormat === 'pdf') {
+                document.getElementById('pdf-viewer').classList.remove('hidden');
+                document.querySelector('#pdf-preview p').classList.add('hidden');
+                // In a real app, you would set the PDF viewer source here
+            }
+        });
+        
+        // Editor content change handler
+        document.getElementById('editor').addEventListener('input', (e) => {
+            // In a real app, you would parse the markdown and render it
+            document.getElementById('markdown-preview').innerHTML = `
+                <h2>Preview</h2>
+                <p>${e.target.value || 'Preview will appear here as you type...'}</p>
+            `;
+        });
+    </script>
+</body>
+</html>
