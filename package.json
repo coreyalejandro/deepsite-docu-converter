@@ -2,9 +2,11 @@
   "name": "deepsite-docu-converter",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"No tests\""
+    "test": "echo \"No tests\"",
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node server/index.js"
   },
   "keywords": [],
   "author": "",
@@ -16,5 +18,8 @@
     "markdown-it": "^14.1.0",
     "multer": "^2.0.2",
     "pdfjs-dist": "^5.4.149"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
   }
 }

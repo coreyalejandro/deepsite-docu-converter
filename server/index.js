@@ -8,7 +8,7 @@ const upload = multer();
 const app = express();
 
 // Serve static files
-app.use(express.static('public'));
+app.use(express.static('dist'));
 
 // Configure Markdown renderer with highlight.js
 const md = new MarkdownIt();
