@@ -8,13 +8,68 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         .editor-container {
             height: calc(100vh - 200px);
         }
         .preview-container {
             height: calc(100vh - 200px);
+            overflow: hidden;
+        }
+        #preview-content {
             overflow-y: auto;
+            height: 100%;
+        }
+        #toc {
+            max-height: 100%;
+            position: sticky;
+            top: 0;
+        }
+        #toc a {
+            display: block;
+            padding-left: 0.25rem;
+            transition: color 0.3s;
+        }
+        #toc a.active {
+            color: #6366f1;
+            font-weight: 600;
+        }
+        .callout {
+            border-left: 4px solid #4f46e5;
+            background-color: #312e81;
+            border-radius: 0.375rem;
+            margin: 1rem 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .callout.collapsed .callout-content {
+            max-height: 0;
+            opacity: 0;
+        }
+        .callout .callout-content {
+            max-height: 1000px;
+            opacity: 1;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+        }
+        .callout-toggle {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+        }
+        .callout-toggle::after {
+            content: '▾';
+            transition: transform 0.3s;
+        }
+        .callout.collapsed .callout-toggle::after {
+            transform: rotate(-90deg);
         }
         .dropzone {
             border: 2px dashed #ccc;
@@ -240,14 +295,17 @@
                         <button id="preview-pdf" class="px-2 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">PDF</button>
                     </div>
                 </div>
-                <div id="preview-container" class="preview-container border border-gray-700 rounded-md p-4 overflow-auto bg-gray-700">
-                    <div id="markdown-preview" class="prose max-w-none">
-                        <p class="text-gray-500">Preview will appear here...</p>
-                    </div>
-                    <div id="html-preview" class="hidden"></div>
-                    <div id="pdf-preview" class="hidden h-full">
-                        <iframe id="pdf-viewer" class="hidden"></iframe>
-                        <p class="text-gray-500 text-center mt-10">PDF preview will appear here after conversion</p>
+                <div id="preview-container" class="preview-container border border-gray-700 rounded-md p-4 bg-gray-700 flex">
+                    <nav id="toc" class="hidden md:block w-1/4 pr-4 text-sm text-gray-400"></nav>
+                    <div id="preview-content" class="flex-1">
+                        <div id="markdown-preview" class="prose max-w-none">
+                            <p class="text-gray-500">Preview will appear here...</p>
+                        </div>
+                        <div id="html-preview" class="hidden"></div>
+                        <div id="pdf-preview" class="hidden h-full">
+                            <iframe id="pdf-viewer" class="hidden"></iframe>
+                            <p class="text-gray-500 text-center mt-10">PDF preview will appear here after conversion</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -621,13 +679,109 @@
         });
         
         // Editor content change handler
-        document.getElementById('editor').addEventListener('input', (e) => {
-            // In a real app, you would parse the markdown and render it
-            document.getElementById('markdown-preview').innerHTML = `
-                <h2>Preview</h2>
-                <p>${e.target.value || 'Preview will appear here as you type...'}</p>
-            `;
+        const editor = document.getElementById('editor');
+        const markdownPreview = document.getElementById('markdown-preview');
+        editor.addEventListener('input', (e) => {
+            const raw = e.target.value;
+            const html = marked.parse(raw || '');
+            markdownPreview.innerHTML = html || '<p class="text-gray-500">Preview will appear here as you type...</p>';
+            renderRichContent();
         });
+
+        function renderRichContent() {
+            markdownPreview.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+
+            const mermaidBlocks = markdownPreview.querySelectorAll('code.language-mermaid');
+            mermaidBlocks.forEach(block => {
+                const pre = block.parentElement;
+                const div = document.createElement('div');
+                div.className = 'mermaid';
+                div.textContent = block.textContent;
+                pre.replaceWith(div);
+            });
+            if (mermaidBlocks.length) {
+                mermaid.initialize({ startOnLoad: false });
+                mermaid.init(undefined, markdownPreview.querySelectorAll('.mermaid'));
+            }
+
+            if (window.MathJax) {
+                MathJax.typesetPromise([markdownPreview]);
+            }
+
+            initCallouts();
+            initCodeRunners();
+            buildTOC();
+            initDiagramToggles();
+        }
+
+        function initCallouts() {
+            markdownPreview.querySelectorAll('.callout').forEach(co => {
+                if (co.dataset.bound) return;
+                co.dataset.bound = 'true';
+                co.classList.add('collapsed');
+                const toggle = co.querySelector('.callout-toggle');
+                if (toggle) {
+                    toggle.addEventListener('click', () => co.classList.toggle('collapsed'));
+                }
+            });
+        }
+
+        function initCodeRunners() {
+            markdownPreview.querySelectorAll('pre code.language-js, pre code.language-javascript').forEach(code => {
+                const pre = code.parentElement;
+                if (pre.parentElement.classList.contains('code-runner')) return;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'code-runner relative group';
+                pre.parentNode.replaceChild(wrapper, pre);
+                wrapper.appendChild(pre);
+                const btn = document.createElement('button');
+                btn.textContent = 'Run';
+                btn.className = 'absolute top-2 right-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition';
+                btn.addEventListener('click', () => {
+                    try { eval(code.textContent); } catch (err) { console.error(err); }
+                });
+                wrapper.appendChild(btn);
+            });
+        }
+
+        let headingObserver;
+        function buildTOC() {
+            const toc = document.getElementById('toc');
+            toc.innerHTML = '';
+            const headings = markdownPreview.querySelectorAll('h1, h2, h3');
+            if (!headings.length) { toc.classList.add('hidden'); return; }
+            toc.classList.remove('hidden');
+            headings.forEach((h, i) => {
+                const id = 'heading-' + i;
+                h.id = id;
+                const link = document.createElement('a');
+                link.href = '#' + id;
+                link.textContent = h.textContent;
+                link.style.paddingLeft = ((parseInt(h.tagName.substring(1)) - 1) * 12) + 'px';
+                toc.appendChild(link);
+            });
+            if (headingObserver) headingObserver.disconnect();
+            headingObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const link = toc.querySelector(`a[href="#${entry.target.id}"]`);
+                    if (entry.isIntersecting) {
+                        toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+                        link.classList.add('active');
+                    }
+                });
+            }, { root: document.getElementById('preview-content'), threshold: 0.1 });
+            headings.forEach(h => headingObserver.observe(h));
+        }
+
+        function initDiagramToggles() {
+            markdownPreview.querySelectorAll('.diagram-toggle').forEach(btn => {
+                const target = markdownPreview.querySelector(btn.dataset.target);
+                if (!target) return;
+                btn.addEventListener('click', () => target.classList.toggle('hidden'));
+            });
+        }
     </script>
 </body>
 </html>
