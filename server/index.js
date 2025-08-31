@@ -2,7 +2,10 @@ const express = require('express');
 const multer = require('multer');
 const MarkdownIt = require('markdown-it');
 const hljs = require('highlight.js');
-const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+const { createCanvas } = require('@napi-rs/canvas');
+
+// pdfjs-dist ships ES modules; load lazily to keep this file CommonJS
+const pdfjsLibPromise = import('pdfjs-dist/legacy/build/pdf.mjs');
 
 const upload = multer();
 const app = express();
@@ -25,25 +28,70 @@ md.set({
   }
 });
 
+function escapeHtml(str) {
+  return str.replace(/[&<>"]|\u00A0/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    '\u00A0': '&nbsp;'
+  })[c]);
+}
+
 async function pdfToHtml(buffer) {
+  const pdfjsLib = await pdfjsLibPromise;
   const loadingTask = pdfjsLib.getDocument({ data: buffer });
   const pdf = await loadingTask.promise;
-  let html = '';
+
+  const meta = await pdf.getMetadata().catch(() => ({ info: {} }));
+  const outline = await pdf.getOutline().catch(() => []);
+
+  let pages = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.0 });
+
+    const canvas = createCanvas(viewport.width, viewport.height);
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const background = canvas.toDataURL();
+
     const textContent = await page.getTextContent();
-    const pageText = textContent.items.map(item => item.str).join(' ');
-    html += `<p>${pageText}</p>`;
+    const textLayer = textContent.items.map(item => {
+      const tx = pdfjsLib.Util.transform(
+        pdfjsLib.Util.transform(viewport.transform, item.transform),
+        [1, 0, 0, -1, 0, 0]
+      );
+      const fontHeight = Math.hypot(tx[2], tx[3]);
+      const x = tx[4];
+      const y = tx[5] - fontHeight;
+      return `<span style="position:absolute; left:${x}px; top:${y}px; font-size:${fontHeight}px;">${escapeHtml(item.str)}</span>`;
+    }).join('');
+
+    pages.push(
+      `<div class="page" style="position:relative; width:${viewport.width}px; height:${viewport.height}px; background-image:url('${background}'); background-size:contain; background-repeat:no-repeat;">${textLayer}</div>`
+    );
   }
-  return html;
+
+  const styles = '<style>.page{margin:1em auto;}</style>';
+  return {
+    html: styles + pages.join(''),
+    metadata: {
+      title: meta.info.Title || '',
+      headings: (outline || []).map(o => o.title)
+    }
+  };
 }
 
 app.post('/convert', upload.single('file'), async (req, res) => {
   try {
     let html = '';
+    let metadata = {};
     if (req.file) {
       if (req.file.mimetype === 'application/pdf') {
-        html = await pdfToHtml(req.file.buffer);
+        const result = await pdfToHtml(req.file.buffer);
+        html = result.html;
+        metadata = result.metadata;
       } else {
         html = md.render(req.file.buffer.toString('utf8'));
       }
@@ -53,9 +101,9 @@ app.post('/convert', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No content provided' });
     }
 
-    // Return raw HTML. Client will load assets like highlight.js and mermaid
-    // and run post-processing after injection.
-    res.json({ html });
+    // Return raw HTML with metadata. Client will load assets like highlight.js
+    // and mermaid and run post-processing after injection.
+    res.json({ html, metadata });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Conversion failed' });
