@@ -28,3 +28,7 @@ To bundle the frontend assets:
 npm run build
 ```
 The compiled files are output to `dist/` and can be served by the Express server.
+
+## Security
+
+The Express server sanitizes all generated HTML using [DOMPurify](https://github.com/cure53/DOMPurify) before returning it to clients. This helps prevent XSS when converting untrusted input. If you modify server-side rendering, ensure any HTML sent in responses is sanitized.

@@ -3,12 +3,18 @@ const multer = require('multer');
 const MarkdownIt = require('markdown-it');
 const hljs = require('highlight.js');
 const { createCanvas } = require('@napi-rs/canvas');
+const { JSDOM } = require('jsdom');
+const createDOMPurify = require('dompurify');
 
 // pdfjs-dist ships ES modules; load lazily to keep this file CommonJS
 const pdfjsLibPromise = import('pdfjs-dist/legacy/build/pdf.mjs');
 
 const upload = multer();
 const app = express();
+
+// Initialize DOMPurify with a server-side DOM implementation
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
 
 // Serve static files
 app.use(express.static('dist'));
@@ -101,7 +107,10 @@ app.post('/convert', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No content provided' });
     }
 
-    // Return raw HTML with metadata. Client will load assets like highlight.js
+    // Sanitize HTML to avoid XSS before sending to the client
+    html = DOMPurify.sanitize(html);
+
+    // Return sanitized HTML with metadata. Client will load assets like highlight.js
     // and mermaid and run post-processing after injection.
     res.json({ html, metadata });
   } catch (err) {
