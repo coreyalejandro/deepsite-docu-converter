@@ -5,12 +5,14 @@ const hljs = require('highlight.js');
 const { createCanvas } = require('@napi-rs/canvas');
 const { JSDOM } = require('jsdom');
 const createDOMPurify = require('dompurify');
+const { createLearningJourney } = require('./learningPath');
 
 // pdfjs-dist ships ES modules; load lazily to keep this file CommonJS
 const pdfjsLibPromise = import('pdfjs-dist/legacy/build/pdf.mjs');
 
 const upload = multer();
 const app = express();
+app.use(express.json());
 
 // Initialize DOMPurify with a server-side DOM implementation
 const window = new JSDOM('').window;
@@ -116,6 +118,20 @@ app.post('/convert', upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Conversion failed' });
+  }
+});
+
+app.post('/journey', (req, res) => {
+  try {
+    const { html, profile } = req.body;
+    if (!html || !profile) {
+      return res.status(400).json({ error: 'html and profile are required' });
+    }
+    const journey = createLearningJourney(html, profile);
+    res.json(journey);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create learning journey' });
   }
 });
 
