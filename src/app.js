@@ -1,4 +1,12 @@
 
+import { marked } from 'marked';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
+import mermaid from 'mermaid';
+import MathJax from 'mathjax/es5/tex-mml-chtml.js';
+
+mermaid.initialize({ startOnLoad: false });
+
         // Format selection
         const formatBtns = document.querySelectorAll('.format-btn');
         formatBtns.forEach(btn => {
@@ -319,12 +327,12 @@ function renderRichContent(container) {
         wrapper.textContent = code.textContent;
         pre.replaceWith(wrapper);
     });
-    if (window.mermaid) {
+    if (mermaid) {
         mermaid.init(undefined, container.querySelectorAll('.mermaid'));
     }
 
     // MathJax equations
-    if (window.MathJax && window.MathJax.typesetPromise) {
+    if (MathJax && MathJax.typesetPromise) {
         MathJax.typesetPromise([container]).catch(err => console.error(err));
     }
 
