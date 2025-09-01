@@ -14,8 +14,10 @@
   "type": "commonjs",
   "dependencies": {
     "@napi-rs/canvas": "^0.1.78",
+    "dompurify": "^3.2.6",
     "express": "^5.1.0",
     "highlight.js": "^11.11.1",
+    "jsdom": "^26.1.0",
     "markdown-it": "^14.1.0",
     "marked": "^16.2.1",
     "mathjax": "^3.2.2",
